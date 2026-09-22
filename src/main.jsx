@@ -7,6 +7,16 @@ import "./styles.css";
 const items=[["home","◉","Home"],["inbox","✉","Inbox"],["chat","◌","Chats"],["vibe","✦","My Vibe"],["face","◈","Face VIBE"],["roast","⚡","Roast Me"],["profile","◎","Profile"],["settings","⚙","Settings"],["admin","▣","Owner Admin"]];
 
 function App(){
+ useEffect(() => {
+  supabase
+    .from("profiles")
+    .select("id")
+    .limit(1)
+    .then(({ error }) => {
+      if (error) console.error("Supabase connection error:", error);
+      else console.log("VIBE → Supabase connected");
+    });
+}, []);
  const [page,setPage]=useState("home");
  const [message,setMessage]=useState(""); const [sent,setSent]=useState(false);
  const go=p=>{setPage(p);setSent(false)};
