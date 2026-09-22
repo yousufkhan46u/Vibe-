@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from "react";
 import {createRoot} from "react-dom/client";
 import {FaceLandmarker,FilesetResolver} from "@mediapipe/tasks-vision";
+import { supabase } from "./supabase";
 import "./styles.css";
 
 const items=[["home","◉","Home"],["inbox","✉","Inbox"],["chat","◌","Chats"],["vibe","✦","My Vibe"],["face","◈","Face VIBE"],["roast","⚡","Roast Me"],["profile","◎","Profile"],["settings","⚙","Settings"],["admin","▣","Owner Admin"]];
