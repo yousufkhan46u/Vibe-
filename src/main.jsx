@@ -881,55 +881,6 @@ function Profile({user,profile,setProfile}){
 
  </div>
 }
- const email=user?.email||"";
-
- return <div className="profile">
-  <Card>
-   <div className="avatar">
-    {(email[0]||"S").toUpperCase()}
-   </div>
-
-   <h2>{email.split("@")[0]||"User"}</h2>
-   <p>{email}</p>
-
-   <div className="tags">
-    <i>The Quiet Charmer</i>
-    <i>Midnight Luxury</i>
-   </div>
-
-   <p>
-    Quiet by nature. Observant by choice.
-    I keep my circle small and my VIBE real.
-   </p>
-  </Card>
-
-  <Card>
-   <h3>Send Anonymous Message</h3>
-
-   {sent?
-    <div className="success">
-     Message stored only in this browser.
-     Remote delivery is not enabled yet.
-    </div>
-   :
-    <>
-     <textarea
-      value={message}
-      onChange={e=>setMessage(e.target.value)}
-      placeholder="Say something anonymously…"
-     />
-
-     <button
-      className="primary"
-      onClick={()=>message.trim()&&setSent(true)}
-     >
-      Save local message
-     </button>
-    </>
-   }
-  </Card>
- </div>
-}
 
 function Settings(){
  return <Card>
