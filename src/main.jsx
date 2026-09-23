@@ -144,33 +144,44 @@ function App(){
 
  return <VibeApp session={session}/>;
 }
-
 function VibeApp({session}){
- useEffect(() => {
-  supabase
-   .from("profiles")
-   .select("id")
-   .limit(1)
-   .then(({ error }) => {
-    if (error) console.error("Supabase connection error:", error);
-    else console.log("VIBE → Supabase connected");
-   });
- }, []);
-
  const [page,setPage]=useState("home");
- const [message,setMessage]=useState("");
- const [sent,setSent]=useState(false);
+ const [profile,setProfile]=useState(null);
+ const [profileLoading,setProfileLoading]=useState(true);
 
- const go=p=>{
-  setPage(p);
-  setSent(false);
- };
+ const go=p=>setPage(p);
+
+ useEffect(()=>{
+  const loadProfile=async()=>{
+   const {data,error}=await supabase
+    .from("profiles")
+    .select("id,username,display_name,bio,avatar_url,created_at")
+    .eq("id",session.user.id)
+    .maybeSingle();
+
+   if(error) console.error("Profile load error:",error);
+
+   setProfile(data||null);
+   setProfileLoading(false);
+  };
+
+  loadProfile();
+ },[session.user.id]);
 
  const logout=async()=>{
   await supabase.auth.signOut();
  };
 
  const userEmail=session?.user?.email||"";
+
+ if(profileLoading){
+  return <div className="auth-screen">
+   <div className="card auth-card">
+    <h2>Loading your VIBE…</h2>
+    <p>Getting your profile ready.</p>
+   </div>
+  </div>;
+ }
 
  return <div className="app">
   <aside>
@@ -187,10 +198,20 @@ function VibeApp({session}){
    )}
 
    <div className="mini">
-    <b>{(userEmail[0]||"U").toUpperCase()}</b>
+    <b>
+     {(profile?.display_name?.[0]||userEmail[0]||"U").toUpperCase()}
+    </b>
+
     <div>
-     <strong>{userEmail.split("@")[0]||"User"}</strong>
-     <small>{userEmail}</small>
+     <strong>
+      {profile?.display_name||userEmail.split("@")[0]||"User"}
+     </strong>
+
+     <small>
+      {profile?.username
+       ? "@"+profile.username
+       : userEmail}
+     </small>
     </div>
    </div>
 
@@ -206,7 +227,11 @@ function VibeApp({session}){
      <h1>{items.find(x=>x[0]===page)?.[2]}</h1>
      <p>Your space. Your vibe.</p>
     </div>
-    <button className="primary" onClick={()=>go("profile")}>
+
+    <button
+     className="primary"
+     onClick={()=>go("profile")}
+    >
      Share my VIBE
     </button>
    </header>
@@ -217,21 +242,20 @@ function VibeApp({session}){
    {page==="vibe"&&<Vibe/>}
    {page==="face"&&<Face/>}
    {page==="roast"&&<Roast/>}
+
    {page==="profile"&&
     <Profile
-     message={message}
-     setMessage={setMessage}
-     sent={sent}
-     setSent={setSent}
      user={session.user}
+     profile={profile}
+     setProfile={setProfile}
     />
    }
+
    {page==="settings"&&<Settings/>}
    {page==="admin"&&<Admin/>}
   </main>
  </div>
 }
-
 const Card=({children,className=""})=>
  <div className={"card "+className}>{children}</div>;
 
@@ -709,7 +733,154 @@ function Roast(){
  </div>
 }
 
-function Profile({message,setMessage,sent,setSent,user}){
+function Profile({user,profile,setProfile}){
+ const [username,setUsername]=useState(profile?.username||"");
+ const [displayName,setDisplayName]=useState(profile?.display_name||"");
+ const [bio,setBio]=useState(profile?.bio||"");
+ const [avatarUrl,setAvatarUrl]=useState(profile?.avatar_url||"");
+ const [saving,setSaving]=useState(false);
+ const [error,setError]=useState("");
+ const [success,setSuccess]=useState("");
+
+ useEffect(()=>{
+  setUsername(profile?.username||"");
+  setDisplayName(profile?.display_name||"");
+  setBio(profile?.bio||"");
+  setAvatarUrl(profile?.avatar_url||"");
+ },[profile]);
+
+ const saveProfile=async()=>{
+  setSaving(true);
+  setError("");
+  setSuccess("");
+
+  const cleanUsername=username.trim().toLowerCase();
+  const cleanDisplayName=displayName.trim();
+  const cleanBio=bio.trim();
+  const cleanAvatar=avatarUrl.trim();
+
+  if(!cleanUsername){
+   setSaving(false);
+   setError("Please choose a username.");
+   return;
+  }
+
+  if(!cleanDisplayName){
+   setSaving(false);
+   setError("Please enter your display name.");
+   return;
+  }
+
+  if(!/^[a-z0-9_]{3,20}$/.test(cleanUsername)){
+   setSaving(false);
+   setError("Username must be 3–20 characters and use only letters, numbers or underscores.");
+   return;
+  }
+
+  try{
+   const {data,error}=await supabase
+    .from("profiles")
+    .upsert({
+     id:user.id,
+     username:cleanUsername,
+     display_name:cleanDisplayName,
+     bio:cleanBio||null,
+     avatar_url:cleanAvatar||null
+    },{
+     onConflict:"id"
+    })
+    .select("id,username,display_name,bio,avatar_url,created_at")
+    .single();
+
+   if(error) throw error;
+
+   setProfile(data);
+   setSuccess("Your VIBE profile has been saved.");
+  }catch(e){
+   console.error("Profile save error:",e);
+   setError(e.message||"Could not save your profile.");
+  }finally{
+   setSaving(false);
+  }
+ };
+
+ const initial=(displayName||username||user?.email||"U")[0].toUpperCase();
+
+ return <div className="profile">
+
+  <Card>
+   <div className="avatar">{initial}</div>
+
+   <h2>{displayName||"Your Name"}</h2>
+   <p>{username ? "@"+username : "@yourusername"}</p>
+
+   {bio&&<p>{bio}</p>}
+
+   <div className="tags">
+    <i>VIBE Profile</i>
+    <i>{user?.email}</i>
+   </div>
+  </Card>
+
+  <Card>
+   <h2>Create your VIBE</h2>
+   <p>Tell people about yourself. Your information will be saved to your VIBE profile.</p>
+
+   <input
+    type="text"
+    value={displayName}
+    onChange={e=>setDisplayName(e.target.value)}
+    placeholder="Display name"
+    maxLength={50}
+   />
+
+   <input
+    type="text"
+    value={username}
+    onChange={e=>setUsername(e.target.value.replace(/\s/g,""))}
+    placeholder="Username"
+    maxLength={20}
+   />
+
+   <textarea
+    value={bio}
+    onChange={e=>setBio(e.target.value)}
+    placeholder="Tell people about yourself…"
+    maxLength={500}
+   />
+
+   <input
+    type="url"
+    value={avatarUrl}
+    onChange={e=>setAvatarUrl(e.target.value)}
+    placeholder="Profile photo URL (optional)"
+   />
+
+   {error&&
+    <div className="warning" style={{marginTop:12}}>
+     {error}
+    </div>
+   }
+
+   {success&&
+    <div className="success" style={{marginTop:12}}>
+     {success}
+    </div>
+   }
+
+   <div className="actions" style={{marginTop:14}}>
+    <button
+     className="primary"
+     onClick={saveProfile}
+     disabled={saving}
+    >
+     {saving?"Saving…":"Save my VIBE"}
+    </button>
+   </div>
+  </Card>
+
+ </div>
+}
  const email=user?.email||"";
 
  return <div className="profile">
