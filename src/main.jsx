@@ -772,7 +772,7 @@ function Profile({user,profile,setProfile}){
 
    const {error:uploadError}=await supabase
     .storage
-    .from("avatars")
+    .from("avatar")
     .upload(path,file,{
      upsert:true,
      contentType:file.type
