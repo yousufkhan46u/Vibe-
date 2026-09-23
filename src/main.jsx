@@ -739,6 +739,7 @@ function Profile({user,profile,setProfile}){
  const [bio,setBio]=useState(profile?.bio||"");
  const [avatarUrl,setAvatarUrl]=useState(profile?.avatar_url||"");
  const [saving,setSaving]=useState(false);
+ const [uploading,setUploading]=useState(false);
  const [error,setError]=useState("");
  const [success,setSuccess]=useState("");
 
@@ -748,6 +749,51 @@ function Profile({user,profile,setProfile}){
   setBio(profile?.bio||"");
   setAvatarUrl(profile?.avatar_url||"");
  },[profile]);
+
+ const uploadAvatar=async(e)=>{
+  const file=e.target.files?.[0];
+  if(!file) return;
+
+  setUploading(true);
+  setError("");
+  setSuccess("");
+
+  try{
+   if(!file.type.startsWith("image/")){
+    throw new Error("Please select an image file.");
+   }
+
+   if(file.size>5*1024*1024){
+    throw new Error("Image must be smaller than 5MB.");
+   }
+
+   const ext=file.name.split(".").pop()?.toLowerCase()||"jpg";
+   const path=`${user.id}/${Date.now()}.${ext}`;
+
+   const {error:uploadError}=await supabase
+    .storage
+    .from("avatars")
+    .upload(path,file,{
+     upsert:true,
+     contentType:file.type
+    });
+
+   if(uploadError) throw uploadError;
+
+   const {data}=supabase
+    .storage
+    .from("avatars")
+    .getPublicUrl(path);
+
+   setAvatarUrl(data.publicUrl);
+   setSuccess("Profile photo uploaded.");
+  }catch(e){
+   console.error("Avatar upload error:",e);
+   setError(e.message||"Could not upload profile photo.");
+  }finally{
+   setUploading(false);
+  }
+ };
 
  const saveProfile=async()=>{
   setSaving(true);
@@ -809,7 +855,20 @@ function Profile({user,profile,setProfile}){
  return <div className="profile">
 
   <Card>
-   <div className="avatar">{initial}</div>
+   {avatarUrl ? (
+    <img
+     src={avatarUrl}
+     alt="Profile"
+     style={{
+      width:96,
+      height:96,
+      borderRadius:"50%",
+      objectFit:"cover"
+     }}
+    />
+   ) : (
+    <div className="avatar">{initial}</div>
+   )}
 
    <h2>{displayName||"Your Name"}</h2>
    <p>{username ? "@"+username : "@yourusername"}</p>
@@ -849,12 +908,22 @@ function Profile({user,profile,setProfile}){
     maxLength={500}
    />
 
-   <input
-    type="url"
-    value={avatarUrl}
-    onChange={e=>setAvatarUrl(e.target.value)}
-    placeholder="Profile photo URL (optional)"
-   />
+   <div style={{marginTop:14}}>
+    <label style={{display:"block",marginBottom:8}}>
+     Profile photo
+    </label>
+
+    <input
+     type="file"
+     accept="image/*"
+     onChange={uploadAvatar}
+     disabled={uploading}
+    />
+
+    {uploading&&(
+     <p style={{marginTop:8}}>Uploading photo…</p>
+    )}
+   </div>
 
    {error&&
     <div className="warning" style={{marginTop:12}}>
@@ -872,7 +941,7 @@ function Profile({user,profile,setProfile}){
     <button
      className="primary"
      onClick={saveProfile}
-     disabled={saving}
+     disabled={saving||uploading}
     >
      {saving?"Saving…":"Save my VIBE"}
     </button>
